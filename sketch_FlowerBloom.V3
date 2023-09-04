@@ -1,0 +1,164 @@
+#include <Arduino.h>
+#include <math.h>
+//#include <myheader.h>
+
+// PURPOSE:  This code is intended to open and close an animatronic flower as well as 
+//           brighten and dim as an LED as an object approaches and moves away from a sensor.
+//           It functions by picking up ultrasonic soundwave data from a 
+//           proximity sensor converts it into centimeters and then sends it through a 
+//           moving average function to smooth out any high or low peaks in raw data.
+//           This refined data of, distance from an object, is sent through a function that relates
+//           the distance of an object to the brightness of an LED (this gives the gradual brightening 
+//           as the distance decreases and a gradual dimming as the distance increases). Then finally
+//           The servo is mapped to the distance to create a smooth correlation between the two.
+//           So, as the distance decreases the servo degree decreases, opening the flower and 
+//           vice versa.  
+ 
+// AUTHOR:   Diego J. Salanueva 
+// CIRCUIT:  Refer to the image... 
+
+
+// defines pins numbers
+
+// const int sigPin = 7;
+// const int ledPin = 5;
+// // defines variables
+// long duration;
+// int distToTarget;
+// int distToTargetAvg;
+
+
+
+const int LED_pin = 5;
+const int sigPin = 7;
+long duration; // Time (in MICROSECONDS for ping) to hit object & bounce back.
+//int pingTravelDist; // DISTANCE (ping travels) out from sensor and back. (INCHES)
+int distToTarget ; // DISTANCE (Ping tavels) in one direcion (INCHES)
+int distToTargetAvg;
+
+int LED_brightness;// LED Brightness
+
+#include <Servo.h>
+Servo myservo;
+int pos=34 ;
+
+/// moving average - leave this alone
+float movingAverage(float value) {
+  const byte nvalues = 37;             // Moving average window size TEST 10 VALUES
+
+  static byte current = 0;            // Index for current value
+  static byte cvalues = 0;            // Count of values read (<= nvalues)
+  static float sum = 0;               // Rolling sum
+  static float values[nvalues];
+
+  sum += value;
+
+  // If the window is full, adjust the sum by deleting the oldest value
+  if (cvalues == nvalues)
+    sum -= values[current];
+
+  values[current] = value;          // Replace the oldest with the latest
+
+  if (++current >= nvalues)
+    current = 0;
+
+  if (cvalues < nvalues)
+    cvalues += 1;
+
+  return sum/cvalues;
+
+}
+/// end of moving aveareg   
+
+  
+  
+  void setup() {
+    
+    
+   // pinMode (Switch_Pin, INPUT_PULLUP); // switch pin set as input with an internal pull-up resistor
+   
+    pinMode( LED_pin, OUTPUT); // LED pin is set as an output 
+    
+    myservo.attach(9);  // attaches the servo on pin 9 to the servo object
+
+    Serial.begin(9600); 
+  }
+
+
+  void loop() {
+
+
+//          P R O X .  S E N S O R :
+
+ 
+      // Set-up for proximity sensor (sigPin refers to pin on Prox. Sensor)
+
+      pinMode (sigPin, OUTPUT);
+      digitalWrite (sigPin, LOW);
+      delayMicroseconds(5);
+      digitalWrite (sigPin, HIGH);
+      delayMicroseconds(5);
+      digitalWrite(sigPin, LOW);
+
+      pinMode (sigPin, INPUT);
+      duration = pulseIn(sigPin, HIGH);
+      delay(1);
+      distToTarget = duration * 0.034 / 2;
+      distToTarget = constrain(distToTarget,0,255);
+      distToTargetAvg = movingAverage(distToTarget);
+      //distToTargetAvg = constrain (distToTargetAvg,17.78,185.928);
+      delay(1);
+      //println(distToTargetAvg);
+        //constrain(distToTarget, 0, 77);
+      //constrain(distToTarget,-1,80);
+
+
+//            L E D   B R I G H T N E S S   &   M I C R O  S E R V O   :
+           
+     
+        
+          if (distToTargetAvg <= 4) {
+          LED_brightness = 255;
+           analogWrite( LED_pin , LED_brightness);
+        //    delay(5);
+        // //   pos= 90;
+        // //   myservo.write(pos);
+        // //   delay(50);
+         }
+          else if (distToTargetAvg >= 220){
+            LED_brightness = 0 ;
+            analogWrite( LED_pin , LED_brightness); 
+          }
+          //    analogWrite( LED_pin , LED_brightness); 
+          //    delay(5);
+          // //   pos= 110;
+          // //   myservo.write(pos);
+          // //   //delay(50);
+            //}
+            else {
+            //LED_brightness= map(distToTargetAvg, 4, 200, 0, 255);
+            LED_brightness = (-1* (51)/(32)) * distToTargetAvg + ((2295)/(8));
+            LED_brightness = constrain(LED_brightness,0,255);
+            analogWrite( LED_pin , LED_brightness);
+             pos = map(distToTargetAvg, 20, 300, 20, 42);
+            pos = constrain( pos, 20, 42);
+            myservo.write(pos);
+            //delay(10);
+            }
+
+             
+
+
+          
+
+
+//              P R I N T I N G   D A T A :
+
+    //  Serial.println(distToTargetAvg); //distance to target moving average
+    //  serial.print(",");
+     //Serial.println(LED_brightness);
+     //Serial.print(",");
+     //Serial.println(pos);
+     //delay(10);
+ 
+}
